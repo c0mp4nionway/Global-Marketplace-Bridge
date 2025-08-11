@@ -1,0 +1,9 @@
+Flask
+requests
+cryptography
+tkinter
+pytest
+matplotlib
+Pillow
+schedule
+sqlite3
