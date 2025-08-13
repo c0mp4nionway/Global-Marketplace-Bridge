@@ -1,0 +1,20 @@
+# sensitive/artifacts
+secret.key
+config.enc
+dropship.db
+synced.db
+dropship.log
+.env
+*.sqlite
+*.sqlite3
+__pycache__/
+*.pyc
+
+# node
+web/node_modules/
+web/.next/
+
+# python build
+*.egg-info/
+dist/
+build/

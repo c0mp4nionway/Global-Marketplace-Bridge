@@ -1,0 +1,14 @@
+# Require review from code owners on changes to these paths.
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners
+*       @c0mp4nionway
+
+# Service-specific
+/apps/core_api/   @c0mp4nionway
+/apps/worker/     @c0mp4nionway
+/web/             @c0mp4nionway
+
+# CI & infra
+/.github/         @c0mp4nionway
+/docker-compose.yml @c0mp4nionway
