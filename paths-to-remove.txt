@@ -1,0 +1,7 @@
+secret.key
+config.enc
+dropship.db
+synced.db
+dropship.log
+.env
+EOF

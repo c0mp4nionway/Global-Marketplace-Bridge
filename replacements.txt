@@ -1,0 +1,8 @@
+# Format: one rule per line
+# Literal example (replace exact string):
+#   password123==>REDACTED
+# Regex examples (prefix with regex:):
+regex:(?i)circleco-circlegr-(?:sbx|prd)-[a-z0-9-]+==>EBAY_CLIENT_ID_REDACTED
+regex:(?i)\bprd-[a-z0-9-]{8,}==>EBAY_CLIENT_SECRET_REDACTED
+regex:(?i)v\^1\..*#.*==>EBAY_USER_TOKEN_REDACTED
+EOF

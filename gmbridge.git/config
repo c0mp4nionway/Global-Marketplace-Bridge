@@ -1,0 +1,11 @@
+[core]
+	repositoryformatversion = 0
+	filemode = false
+	bare = true
+	symlinks = false
+	ignorecase = true
+[remote "origin"]
+	url = https://github.com/c0mp4nionway/Global-Marketplace-Bridge.git
+	tagOpt = --no-tags
+	fetch = +refs/*:refs/*
+	mirror = true
