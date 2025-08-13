@@ -1,0 +1,25 @@
+# Local secrets & artifacts
+secret.key
+config.enc
+dropship.db
+synced.db
+dropship.log
+.env
+.env.*
+*.sqlite
+*.sqlite3
+__pycache__/
+*.pyc
+# Node
+web/.next/
+web/node_modules/
+# Python build
+*.egg-info/
+dist/
+build/
+# OS
+.DS_Store
+Thumbs.db
+# Archives
+*.zip
+archive/
