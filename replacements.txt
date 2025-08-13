@@ -6,3 +6,6 @@ regex:(?i)circleco-circlegr-(?:sbx|prd)-[a-z0-9-]+==>EBAY_CLIENT_ID_REDACTED
 regex:(?i)\bprd-[a-z0-9-]{8,}==>EBAY_CLIENT_SECRET_REDACTED
 regex:(?i)v\^1\..*#.*==>EBAY_USER_TOKEN_REDACTED
 EOF
+
+git rev-list --all | xargs -n1 -I{} git grep -I -n --heading --break \
+  -e 'circleco-circlegr' -e 'prd-' -e 'sbx-' -e 'aliexpress' -e 'secret' -e 'token' -e 'apikey' -e 'BEGIN PRIVATE KEY'
