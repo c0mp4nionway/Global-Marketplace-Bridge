@@ -1,191 +1,48 @@
-# Create a PR bundle (zip) with proposed repo fixes:
-# - .gitignore
-# - Procfile
-# - requirements.txt (root, combined)
-# - .github/workflows/ci-core.yml and ci-web.yml
-# - scripts/tidy_repo.sh to rename/move/cleanup tracked secrets
-# - README.md snippet (deploy steps) as README_ADDENDUM.md
+version: "3.9"
 
-import os, textwrap, zipfile, io, pathlib
+services:
+  api:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: >
+      sh -c "pip install -r requirements.txt &&
+             uvicorn apps.core_api.main:app --host 0.0.0.0 --port 8000 --reload"
+    environment:
+      SIMULATION: "1"
+      MARKETPLACE_ID: "EBAY-AU"
+    ports:
+      - "8000:8000"
 
-root = "/mnt/data/gmbridge_pr1"
-if os.path.exists(root):
-    import shutil
-    shutil.rmtree(root)
-os.makedirs(root, exist_ok=True)
+  worker:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: >
+      sh -c "pip install -r requirements.txt &&
+             python -m apps.worker.worker"
+    depends_on:
+      - api
+      - redis
 
-def write(path, content):
-    full = os.path.join(root, path)
-    os.makedirs(os.path.dirname(full), exist_ok=True)
-    with open(full, "w", encoding="utf-8") as f:
-        f.write(textwrap.dedent(content).lstrip())
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
 
-# .gitignore
-write(".gitignore", """
-# Local secrets & artifacts
-secret.key
-config.enc
-dropship.db
-synced.db
-dropship.log
-.env
-.env.*
-*.sqlite
-*.sqlite3
-__pycache__/
-*.pyc
-# Node
-web/.next/
-web/node_modules/
-# Python build
-*.egg-info/
-dist/
-build/
-# OS
-.DS_Store
-Thumbs.db
-# Archives
-*.zip
-archive/
-""")
-
-# Procfile
-write("Procfile", """
-# Monorepo Procfile for Heroku
-# Web dyno runs FastAPI core_api
-web: uvicorn apps.core_api.main:app --host 0.0.0.0 --port ${PORT}
-# Worker dyno runs RQ worker
-worker: python -m apps.worker.worker
-""")
-
-# requirements.txt (root, combined minimal)
-write("requirements.txt", """
-# Core API
-fastapi==0.111.0
-uvicorn==0.30.1
-python-dotenv==1.0.1
-redis==5.0.7
-requests==2.32.3
-pydantic==2.8.2
-
-# Worker
-rq==1.16.2
-""")
-
-# CI: Python
-write(".github/workflows/ci-core.yml", """
-name: CI - Core API
-on:
-  push:
-    paths:
-      - 'apps/core_api/**'
-      - '.github/workflows/ci-core.yml'
-      - 'requirements.txt'
-  pull_request:
-    paths:
-      - 'apps/core_api/**'
-      - '.github/workflows/ci-core.yml'
-      - 'requirements.txt'
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Install deps
-        run: pip install -r requirements.txt
-      - name: Lint import
-        run: python -c "import importlib; importlib.import_module('apps.core_api.main')"
-      - name: Unit smoke
-        run: python - << 'PY'\nprint('smoke ok')\nPY
-""")
-
-# CI: Web
-write(".github/workflows/ci-web.yml", """
-name: CI - Web
-on:
-  push:
-    paths:
-      - 'web/**'
-      - '.github/workflows/ci-web.yml'
-  pull_request:
-    paths:
-      - 'web/**'
-      - '.github/workflows/ci-web.yml'
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Install
-        working-directory: web
-        run: npm ci --no-audit --no-fund
-      - name: Build
-        working-directory: web
-        run: npm run build
-""")
-
-# Tidy script
-write("scripts/tidy_repo.sh", r"""
-#!/usr/bin/env bash
-set -euo pipefail
-
-echo "==> Adding .gitignore entries"
-{ 
-  echo "secret.key"
-  echo "config.enc"
-  echo "dropship.db"
-  echo "synced.db"
-  echo "dropship.log"
-  echo ".env"
-} >> .gitignore || true
-
-echo "==> Renaming Procfile.txt -> Procfile (if present)"
-if [ -f "Procfile.txt" ]; then
-  git mv -f Procfile.txt Procfile || mv Procfile.txt Procfile
-fi
-
-echo "==> Renaming requirements.txt.txt -> requirements.txt (if present)"
-if [ -f "requirements.txt.txt" ]; then
-  git mv -f requirements.txt.txt requirements.txt || mv requirements.txt.txt requirements.txt
-fi
-
-echo "==> Creating archive/ and moving legacy copies"
-mkdir -p archive
-for p in dropship-automator python-getting-started dropship_automator_sandbox_ready.py Global_Marketplace_Bridge.txt; do
-  if [ -e "$p" ]; then
-    git mv -f "$p" "archive/$(basename "$p")" || mv "$p" "archive/$(basename "$p")"
-  fi
-done
-
-echo "==> Stop tracking local artifacts"
-git rm --cached -f secret.key config.enc dropship.db synced.db dropship.log || true
-
-echo "==> Commit changes"
-git add .gitignore Procfile requirements.txt .github/workflows/ scripts/tidy_repo.sh archive || true
-git commit -m "chore(repo): cleanup secrets, add Procfile & CI, archive legacy" || true
-
-echo "==> Done. Review the commit and push."
-""")
-
-# README addendum
-write("README_ADDENDUM.md", """
-## Deploy (Heroku)
-
-**Monorepo Procfile** is included at repo root. Two dynos:
-- `web`: FastAPI core (`apps.core_api.main:app`)
-- `worker`: RQ worker (`apps.worker.worker`)
-
-### Steps
-```bash
-heroku create gmbridge-core --region eu
-heroku buildpacks:set heroku/python -a gmbridge-core
-heroku addons:create heroku-redis:mini -a gmbridge-core
-heroku config:set SIMULATION=1 MARKETPLACE_ID=EBAY-AU NEXT_PUBLIC_API_BASE=https://gmbridge-core.herokuapp.com -a gmbridge-core
-git push heroku main  # or your branch
-heroku ps:scale web=1 worker=1 -a gmbridge-core
+  web:
+    image: node:20-alpine
+    working_dir: /app/web
+    volumes:
+      - ./:/app
+    command: >
+      sh -c "npm ci --no-audit --no-fund &&
+             npm run dev"
+    environment:
+      NEXT_PUBLIC_API_BASE: "http://api:8000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
